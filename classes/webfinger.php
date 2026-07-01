@@ -63,17 +63,27 @@ trait webfinger {
         if (!str_contains($resource, '@')) {
             throw new \moodle_exception('Invalid resource format for webfinger.');
         }
-        [$username, $domain] = explode('@', $resource);
-        if ($domain !== parse_url($CFG->wwwroot, PHP_URL_HOST)) {
+        if (str_starts_with($resource, 'acct:')) {
+            [$actor, $domain] = explode('@', $resource);
+            $actor = substr($actor, 5);
+        } else {
+            // Invalid for this server, not invalid by the spec. Could be a feed.
+            throw new \moodle_exception('Invalid resource format for webfinger.');
+        }
+
+        $serverurl = parse_url($CFG->wwwroot, PHP_URL_HOST);
+        if ($domain !== $serverurl) {
             throw new \moodle_exception('Invalid domain for webfinger resource.');
         }
-        $user = $db->get_record('user', ['username' => $username, 'deleted' => 0]);
+
+        $user = $db->get_record('user', ['username' => $actor, 'deleted' => 0]);
         if (!$user) {
             throw new \moodle_exception('User not found for webfinger resource.');
         }
         $profileurl = new url('/user/profile.php', ['id' => $user->id]);
         $payload = [
-            'subject' => "acct:{$resource}",
+            // TODO
+            'subject' => "acct:{$actor}@{$serverurl}",
             'links' => [
                 [
                     'rel' => 'self',
